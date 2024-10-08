@@ -1,7 +1,5 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-
-extern crate ctrlc;
+use std::io;
+use termion::input::TermRead;
 
 pub struct Launcher
 {
@@ -70,20 +68,24 @@ impl Launcher {
             }
         }
 
-        let running = Arc::new(AtomicBool::new(true));
-        let r = running.clone();
+        let stdin = io::stdin();
 
-        ctrlc::set_handler(move ||{
-            r.store(false, Ordering::SeqCst);
-        }).expect("Error Setting Ctrl-C Handler");
-
-        while running.load(Ordering::SeqCst) {}
-
-        let node_num = self.process.len();
-
-        for i in 0..node_num
+        for c in stdin.keys()
         {
-            let _ = self.process[i].kill();
+            match c {
+                Ok(termion::event::Key::Ctrl('c'))=>{
+                    let pro_nm = self.process.len();
+
+                    for i in 0..pro_nm
+                    {
+                        let _ = self.process[i].kill();
+                    }
+                }
+                Err(_)=>{
+
+                }
+                _=>{}
+            }
         }
     }
 }
