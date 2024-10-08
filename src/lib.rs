@@ -1,11 +1,17 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+use ctrlc;
+
 pub struct Launcher
 {
-    nodes : Vec<LaunchNode>
+    nodes : Vec<LaunchNode>,
+    process : Vec<std::process::Child>
 }
 impl Launcher {
     pub fn new()->Self
     {
-        Launcher { nodes: Vec::new() }
+        Launcher { nodes: Vec::new() , process : Vec::new()}
     }
 
     pub fn add(&mut self, node : LaunchNode)
@@ -13,7 +19,7 @@ impl Launcher {
         self.nodes.push(node);
     }
 
-    pub fn launch(&self)
+    pub fn launch(&mut self)
     {
         for node in self.nodes.clone()
         {
@@ -28,6 +34,8 @@ impl Launcher {
                     .arg("--bin")
                     .arg(node.node_name.unwrap())
                     .arg(config_file_path_).spawn().unwrap();
+
+                self.process.push(_process);
             }
             else if node.node_name.clone() != None && node.config_file_path.clone() == None
             {
@@ -37,6 +45,8 @@ impl Launcher {
                     .arg(node.pkg_name)
                     .arg("--bin")
                     .arg(node.node_name.unwrap()).spawn().unwrap();
+
+                    self.process.push(_process);
             }
             else if node.node_name.clone() == None && node.config_file_path.clone() != None
             {
@@ -47,13 +57,33 @@ impl Launcher {
                     .arg("-p")
                     .arg(node.pkg_name)
                     .arg(config_file_path_).spawn().unwrap();
+
+                    self.process.push(_process);
             }
             else {
                 let _process = std::process::Command::new("cargo")
                     .arg("run")
                     .arg("-p")
                     .arg(node.pkg_name).spawn().unwrap();
+
+                    self.process.push(_process);
             }
+        }
+
+        let running = Arc::new(AtomicBool::new(true));
+        let r = running.clone();
+
+        ctrlc::set_handler(move ||{
+            r.store(false, Ordering::SeqCst);
+        }).expect("Error Setting Ctrl-C Handler");
+
+        while running.load(Ordering::SeqCst) {}
+
+        let node_num = self.process.len();
+
+        for i in 0..node_num
+        {
+            let _ = self.process[i].kill();
         }
     }
 }
