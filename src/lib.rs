@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use ctrlc;
+extern crate ctrlc;
 
 pub struct Launcher
 {
